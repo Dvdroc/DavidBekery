@@ -9,54 +9,77 @@ use Carbon\Carbon;
 use Illuminate\Http\Request;
 use App\Models\OrderItem;
 use App\Models\Order;
-// use App\Models\ProductionSlot; <-- DIHAPUS
-// use App\Http\Controllers\Admin\SlotController; <-- DIHAPUS (jika ada, saya hapus saja untuk memastikan)
 use Illuminate\Support\Facades\Auth;
 
 class OrderController extends Controller
 {
     // FUNGSI INDEX: Untuk menampilkan halaman Status Pesan
-    public function index()
+    public function index(Request $request)
     {
-        // Ambil item pesanan yang statusnya tidak 'batal'
-        $items = OrderItem::with(['product', 'order.user'])
-            ->whereHas('order', function($q) {
-                // Menampilkan semua pesanan kecuali yang dibatalkan
-                $q->where('status', '!=', 'cancelled'); 
-            })
-            ->latest()
-            ->get();
+        // 1. AMBIL DATA TANGGAL UNIK (Untuk Dropdown Filter)
+        // Hanya ambil tanggal yang benar-benar ada pesanan (pickup_date)
+        $availableDates = Order::select('pickup_date')
+            ->distinct()
+            ->whereNotNull('pickup_date')
+            ->orderBy('pickup_date', 'desc')
+            ->pluck('pickup_date');
 
-        // Kelompokkan pesanan berdasarkan Nama Kue (Bikang, Kukang, dll)
+        // 2. QUERY ITEM PESANAN
+        $query = OrderItem::with(['product', 'order.user'])
+            ->whereHas('order'); // Pastikan relasi order ada
+
+        // 3. TERAPKAN FILTER JIKA ADA INPUT TANGGAL
+        if ($request->has('date') && $request->date != '') {
+            $query->whereHas('order', function($q) use ($request) {
+                $q->whereDate('pickup_date', $request->date);
+            });
+        }
+
+        // 4. EKSEKUSI QUERY
+        $items = $query->latest()->get();
+
+        // Kelompokkan pesanan berdasarkan Nama Kue
         $groupedOrders = $items->groupBy(function($item) {
             return $item->product->name;
         });
 
-        return view('admin.orders.index', compact('groupedOrders'));
+        return view('admin.orders.index', compact('groupedOrders', 'availableDates'));
     }
 
+    // FUNGSI APPROVE (TERIMA PESANAN)
+    public function approve($id)
+    {
+        $order = Order::findOrFail($id);
+        
+        // Ubah status menjadi 'processing'
+        $order->update(['status' => 'processing']);
+
+        return back()->with('success', 'Pesanan berhasil diterima. Status kini Diproses.');
+    }
     
-    // FUNGSI UPDATE STATUS: Untuk mengubah status pesanan (Pending -> Selesai)
+    // FUNGSI UPDATE STATUS: Menangani perubahan status manual & PEMBATALAN (Tolak)
     public function updateStatus(Request $request, $id)
     {
         $order = Order::findOrFail($id);
         
-        // Validasi status yang boleh dipilih
+        // Validasi status
         $request->validate([
             'status' => 'required|in:pending,processing,production,ready,completed,cancelled'
         ]);
 
         $order->update(['status' => $request->status]);
         
-        // TIDAK ADA LOGIKA ProductionSlot di sini
-        
-        return back()->with('success', 'Status pesanan #' . $id . ' berhasil diperbarui.');
+        $msg = $request->status == 'cancelled' ? 'Pesanan berhasil ditolak/dibatalkan.' : 'Status pesanan diperbarui.';
+
+        return back()->with('success', $msg);
     }
 
+    // ... (Fungsi show, store, userOrders, cancelOrder biarkan tetap sama) ...
+    
     // FUNGSI show() - Menampilkan ketersediaan kuota produk per tanggal
     public function show($id, Request $request){
         $product = Product::findOrFail($id);
-        $pickupDate = $request->query('pickup_date'); // ambil dari query string jika ada
+        $pickupDate = $request->query('pickup_date'); 
 
         // Hitung slot
         $monthStart = Carbon::today()->startOfMonth();
@@ -70,9 +93,10 @@ class OrderController extends Controller
                         ->where('date', $dateStr)
                         ->exists();
 
-            // hitung total yang sudah dipesan (Hanya menghitung yang TIDAK DIBATALKAN)
+            // Note: Untuk perhitungan kuota, kita tetap HANYA menghitung yang TIDAK CANCELLED
+            // Agar kuota kembali tersedia jika pesanan dibatalkan.
             $sold = OrderItem::where('product_id', $product->id)
-                        ->whereHas('order', fn($q) => $q->whereDate('pickup_date', $dateStr)->where('status', '!=', 'cancelled')) // MODIFIKASI: Filter status
+                        ->whereHas('order', fn($q) => $q->whereDate('pickup_date', $dateStr)->where('status', '!=', 'cancelled')) 
                         ->sum('quantity');
 
             $slots[$dateStr] = [
@@ -98,9 +122,7 @@ class OrderController extends Controller
         $pickupDate = $request->pickup_date;
         $totalPrice = $product->price * $requestedQuantity;
 
-        // --- MULAI LOGIKA PENGECKEKAN KUOTA BARU (MENGGANTIKAN ProductionSlot) ---
-
-        // A. Cek penutupan manual
+        // Cek penutupan manual
         $isClosed = ProductClosure::where('product_id', $product->id)
                     ->where('date', $pickupDate)
                     ->exists();
@@ -109,7 +131,7 @@ class OrderController extends Controller
              return back()->with('error', 'Produk ini tidak tersedia untuk tanggal pengambilan tersebut.');
         }
 
-        // B. Hitung total kuantitas yang sudah dipesan (tidak termasuk yang dibatalkan)
+        // Hitung total kuantitas yang sudah dipesan
         $sold = OrderItem::where('product_id', $product->id)
                 ->whereHas('order', fn($q) => $q->whereDate('pickup_date', $pickupDate)->where('status', '!=', 'cancelled'))
                 ->sum('quantity');
@@ -117,24 +139,21 @@ class OrderController extends Controller
         $dailyQuota = $product->daily_quota;
         $remainingQuota = max(0, $dailyQuota - $sold);
 
-        // C. Tolak pesanan jika melebihi kuota
+        // Tolak pesanan jika melebihi kuota
         if ($requestedQuantity > $remainingQuota) {
             return back()->with('error', 'Pesanan melebihi kuota harian produk (Sisa kuota: ' . $remainingQuota . ' pcs). Pesanan ditolak.');
         }
 
-        // --- AKHIR LOGIKA PENGECKEKAN KUOTA BARU ---
-
         $order = Order::create([
             'user_id' => Auth::id(),
             'pickup_date' => $request->pickup_date,
-            'pickup_time' => '09:00:00',
+            'pickup_time' => '09:00:00', // Default jam
             'delivery_type' => $request->delivery_type,
             'delivery_address' => $request->delivery_address,
-            'status' => 'pending', // status awal user membuat pesanan
+            'status' => 'pending', 
             'total_price' => $totalPrice,
         ]);
 
-        // SEMUA PESANAN MASUK KE ORDER ITEMS
         OrderItem::create([
             'order_id' => $order->id,
             'product_id' => $product->id,
@@ -143,11 +162,9 @@ class OrderController extends Controller
             'subtotal' => $totalPrice,
         ]);
 
-        // Redirect user ke list pesanan
         return redirect()->route('user.list-pesanan')->with('success', 'Pesanan berhasil dibuat! Tunggu konfirmasi admin.');
     }
     
-    // FUNGSI userOrders, cancelOrder tidak diubah
     public function userOrders(){
         $orders = Order::with('orderItems.product')
                     ->where('user_id', Auth::id())
@@ -169,5 +186,4 @@ class OrderController extends Controller
 
         return back()->with('error', 'Pesanan tidak bisa dibatalkan.');
     }
-
 }

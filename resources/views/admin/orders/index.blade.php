@@ -1,113 +1,210 @@
 @extends('admin.layout')
 
 @section('content')
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h2 class="text-2xl font-bold text-gray-800">Semua Pesanan</h2>
+            <p class="text-sm text-gray-500">Kelola semua transaksi dan status produksi.</p>
+        </div>
+        <button onclick="window.location.reload()" class="text-sm text-blue-600 font-bold hover:text-blue-700 flex items-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            Refresh
+        </button>
+    </div>
+
+    {{-- BAGIAN BARU: FILTER TANGGAL PENGAMBILAN --}}
     <div class="mb-8">
-        <h2 class="text-2xl font-bold text-gray-800">Status Pesanan</h2>
-        <p class="text-sm text-gray-500">Pantau dan kelola status pesanan yang sedang berjalan.</p>
-    </div>
-
-    <div class="flex flex-wrap gap-4 mb-8">
-        <div class="relative">
-            <select class="appearance-none bg-white border border-gray-300 text-gray-700 py-2.5 px-4 pr-10 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500">
-                <option>Status (Semua)</option>
-                <option>Selesai</option>
-                <option>Diproses</option>
-            </select>
-            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-            </div>
-        </div>
-
-        <div class="relative">
-            <select class="appearance-none bg-white border border-gray-300 text-gray-700 py-2.5 px-4 pr-10 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500">
-                <option>Tanggal (Hari Ini)</option>
-                <option>Minggu Ini</option>
-            </select>
-            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-500">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
-            </div>
-        </div>
-    </div>
-
-    @if(session('success'))
-        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-xl relative mb-6">
-            {{ session('success') }}
-        </div>
-    @endif
-
-    <div class="space-y-8">
-        @forelse($groupedOrders as $productName => $items)
-            <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+        <form action="{{ route('admin.orders.index') }}" method="GET" class="inline-flex items-center bg-white border border-gray-200 shadow-sm rounded-xl px-4 py-2">
+            <div class="flex items-center gap-3">
+                <div class="p-2 bg-green-50 rounded-lg text-green-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                </div>
                 
-                <div class="bg-[#606C38] px-6 py-3">
-                    <h3 class="text-white font-bold text-lg tracking-wide">{{ $productName }}</h3>
+                <div class="flex flex-col">
+                    <label for="date_filter" class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Filter Tanggal Ambil</label>
+                    <select name="date" id="date_filter" onchange="this.form.submit()" class="border-none p-0 text-sm font-bold text-gray-700 focus:ring-0 cursor-pointer bg-transparent">
+                        <option value="">Semua Tanggal</option>
+                        @foreach($availableDates as $date)
+                            <option value="{{ $date }}" {{ request('date') == $date ? 'selected' : '' }}>
+                                {{ \Carbon\Carbon::parse($date)->translatedFormat('d F Y') }}
+                            </option>
+                        @endforeach
+                    </select>
+                </div>
+            </div>
+
+            @if(request('date'))
+                <div class="ml-4 pl-4 border-l border-gray-200">
+                    <a href="{{ route('admin.orders.index') }}" class="text-xs font-bold text-red-500 hover:text-red-700 flex items-center gap-1">
+                        <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                        Reset
+                    </a>
+                </div>
+            @endif
+        </form>
+    </div>
+
+    <div class="space-y-8 pb-20"> 
+        @forelse($groupedOrders as $kategori => $orders)
+            <div class="bg-white rounded-2xl shadow-sm overflow-hidden border border-gray-200">
+                
+                <div class="bg-white px-6 py-4 border-b border-gray-100 flex justify-between items-center">
+                    <h3 class="text-gray-800 font-bold text-lg tracking-wide flex items-center gap-2">
+                        <span class="w-2 h-6 bg-[#606C38] rounded-full"></span> 
+                        {{ $kategori }}
+                    </h3>
+                    <span class="bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded-lg border border-gray-200 font-medium">{{ count($orders) }} Pesanan</span>
                 </div>
 
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead class="bg-gray-50 text-gray-500 text-xs uppercase border-b border-gray-100">
-                            <tr>
-                                <th class="px-6 py-3 font-semibold">Faktur</th>
-                                <th class="px-6 py-3 font-semibold">Waktu</th>
-                                <th class="px-6 py-3 font-semibold">Pembayaran</th>
-                                <th class="px-6 py-3 font-semibold text-center">Jml Pesanan</th>
-                                <th class="px-6 py-3 font-semibold">Nama</th>
-                                <th class="px-6 py-3 font-semibold">Status</th>
-                                <th class="px-6 py-3 font-semibold text-right">Update</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-gray-100 text-sm">
-                            @foreach($items as $item)
-                            <tr class="hover:bg-gray-50 transition">
-                                <td class="px-6 py-4 font-medium text-gray-900">#APM-{{ $item->order->id }}</td>
-                                <td class="px-6 py-4 text-gray-500">
-                                    {{ $item->order->created_at->format('d M, Y') }}
-                                </td>
-                                <td class="px-6 py-4 text-gray-500">
-                                    {{ ucfirst($item->order->delivery_type) }} </td>
-                                <td class="px-6 py-4 text-center font-bold text-gray-800">
-                                    {{ $item->quantity }}
-                                </td>
-                                <td class="px-6 py-4 text-gray-800">{{ $item->order->user->name }}</td>
-                                <td class="px-6 py-4">
-                                    @php
-                                        $statusColors = [
-                                            'pending' => 'text-yellow-600 bg-yellow-50',
-                                            'processing' => 'text-blue-600 bg-blue-50',
-                                            'ready' => 'text-purple-600 bg-purple-50',
-                                            'completed' => 'text-green-600 bg-green-50',
-                                            'cancelled' => 'text-red-600 bg-red-50',
-                                        ];
-                                        $color = $statusColors[$item->order->status] ?? 'text-gray-600 bg-gray-50';
-                                    @endphp
-                                    <span class="px-3 py-1 rounded-full text-xs font-bold {{ $color }}">
-                                        {{ ucfirst($item->order->status) }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 text-right">
-                                    <form action="{{ route('admin.orders.update', $item->order->id) }}" method="POST">
-                                        @csrf
-                                        <select name="status" onchange="this.form.submit()" 
-                                                class="text-xs border-gray-300 rounded shadow-sm focus:border-green-500 focus:ring focus:ring-green-200 focus:ring-opacity-50 cursor-pointer">
-                                            <option value="pending" {{ $item->order->status == 'pending' ? 'selected' : '' }}>Pending</option>
-                                            <option value="processing" {{ $item->order->status == 'processing' ? 'selected' : '' }}>Proses</option>
-                                            <option value="ready" {{ $item->order->status == 'ready' ? 'selected' : '' }}>Siap</option>
-                                            <option value="completed" {{ $item->order->status == 'completed' ? 'selected' : '' }}>Selesai</option>
-                                            <option value="cancelled" {{ $item->order->status == 'cancelled' ? 'selected' : '' }}>Batal</option>
-                                        </select>
-                                    </form>
-                                </td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="bg-[#606C38] text-white text-xs uppercase tracking-wider border-b border-[#606C38]">
+                            <th class="px-6 py-4 font-semibold">Faktur</th>
+                            <th class="px-6 py-4 font-semibold">Pelanggan</th>
+                            <th class="px-6 py-4 font-semibold">Tanggal Ambil</th>
+                            <th class="px-6 py-4 font-semibold text-center">Qty</th>
+                            <th class="px-6 py-4 font-semibold text-right">Total</th>
+                            <th class="px-6 py-4 font-semibold text-center">Status Saat Ini</th>
+                            <th class="px-6 py-4 font-semibold text-center">Aksi Update</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-100 text-sm">
+                        @foreach($orders as $orderItem)
+                        @php $order = $orderItem->order; @endphp
+                        @if($order)
+                        <tr class="hover:bg-gray-50 transition relative">
+                            <td class="px-6 py-4 font-medium text-gray-900">
+                                #APM-{{ $order->id }}
+                                <div class="text-xs text-gray-400 font-normal mt-1">{{ $order->created_at->format('d/m H:i') }}</div>
+                            </td>
+                            
+                            <td class="px-6 py-4">
+                                <div class="font-medium text-gray-900">{{ $order->user->name ?? 'Guest' }}</div>
+                                <div class="text-xs text-gray-500">{{ $order->delivery_type == 'delivery' ? 'Delivery' : 'Pickup' }}</div>
+                            </td>
+                            
+                            <td class="px-6 py-4 text-gray-600">
+                                {{ \Carbon\Carbon::parse($order->pickup_date)->format('d M Y') }}
+                            </td>
+                            
+                            <td class="px-6 py-4 text-center font-bold text-gray-700">
+                                {{ $orderItem->quantity }}
+                            </td>
+                            
+                            <td class="px-6 py-4 text-right font-medium text-gray-900">
+                                Rp {{ number_format($order->total_price, 0, ',', '.') }}
+                            </td>
+
+                            {{-- KOLOM STATUS --}}
+                            <td class="px-6 py-4 text-center">
+                                @php
+                                    $statusBadge = [
+                                        'pending' => 'bg-yellow-100 text-yellow-800 border-yellow-200',
+                                        'processing' => 'bg-blue-100 text-blue-800 border-blue-200',
+                                        'production' => 'bg-purple-100 text-purple-800 border-purple-200',
+                                        'ready' => 'bg-indigo-100 text-indigo-800 border-indigo-200',
+                                        'completed' => 'bg-green-100 text-green-800 border-green-200',
+                                        'cancelled' => 'bg-red-100 text-red-800 border-red-200',
+                                    ][$order->status] ?? 'bg-gray-100 text-gray-800 border-gray-200';
+                                @endphp
+                                <span class="px-3 py-1 rounded-full text-xs font-bold border {{ $statusBadge }}">
+                                    {{ ucfirst($order->status) }}
+                                </span>
+                            </td>
+
+                            {{-- KOLOM UPDATE (JS MURNI) --}}
+                            <td class="px-6 py-4 text-center">
+                                <div class="relative inline-block text-left">
+                                    <button onclick="toggleDropdown('dropdown-{{ $order->id }}')" 
+                                        type="button" 
+                                        class="inline-flex justify-center items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-lg text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition">
+                                        <svg class="mr-1.5 h-4 w-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                                        Update
+                                        <svg class="-mr-1 ml-1 h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                            <path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" />
+                                        </svg>
+                                    </button>
+
+                                    <div id="dropdown-{{ $order->id }}" 
+                                         class="hidden absolute right-0 mt-2 w-44 rounded-xl shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-50 overflow-hidden divide-y divide-gray-100 dropdown-menu-item">
+                                        
+                                        @foreach(['pending', 'processing', 'production', 'ready', 'completed', 'cancelled'] as $statusOption)
+                                            @if($statusOption !== $order->status)
+                                                @php
+                                                    $dropdownColor = match($statusOption) {
+                                                        'pending' => 'text-yellow-600 hover:bg-yellow-50',
+                                                        'processing' => 'text-blue-600 hover:bg-blue-50',
+                                                        'production' => 'text-purple-600 hover:bg-purple-50',
+                                                        'ready' => 'text-indigo-600 hover:bg-indigo-50',
+                                                        'completed' => 'text-green-600 hover:bg-green-50',
+                                                        'cancelled' => 'text-red-600 hover:bg-red-50',
+                                                        default => 'text-gray-700 hover:bg-gray-50',
+                                                    };
+                                                    
+                                                    $dotColor = match($statusOption) {
+                                                        'pending' => 'bg-yellow-400',
+                                                        'processing' => 'bg-blue-500',
+                                                        'production' => 'bg-purple-500',
+                                                        'ready' => 'bg-indigo-500',
+                                                        'completed' => 'bg-green-500',
+                                                        'cancelled' => 'bg-red-500',
+                                                        default => 'bg-gray-400',
+                                                    };
+                                                @endphp
+
+                                                <form action="{{ route('admin.orders.update', $order->id) }}" method="POST">
+                                                    @csrf
+                                                    <input type="hidden" name="status" value="{{ $statusOption }}">
+                                                    <button type="submit" class="w-full text-left px-4 py-3 text-sm font-medium transition flex items-center gap-3 {{ $dropdownColor }}">
+                                                        <span class="w-2.5 h-2.5 rounded-full {{ $dotColor }}"></span>
+                                                        {{ ucfirst($statusOption) }}
+                                                    </button>
+                                                </form>
+                                            @endif
+                                        @endforeach
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        @endif
+                        @endforeach
+                    </tbody>
+                </table>
             </div>
         @empty
-            <div class="text-center py-12 bg-white rounded-xl border border-dashed border-gray-300">
-                <svg class="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"></path></svg>
-                <p class="text-gray-500 font-medium">Belum ada pesanan masuk.</p>
+            <div class="p-12 text-center bg-white rounded-2xl border border-dashed border-gray-300">
+                <div class="flex flex-col items-center justify-center text-gray-500">
+                    @if(request('date'))
+                        <svg class="w-10 h-10 mb-2 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                        <p>Tidak ada pesanan untuk tanggal <span class="font-bold">{{ \Carbon\Carbon::parse(request('date'))->translatedFormat('d F Y') }}</span>.</p>
+                        <a href="{{ route('admin.orders.index') }}" class="mt-2 text-blue-600 hover:underline text-sm">Tampilkan Semua</a>
+                    @else
+                        <p>Belum ada data pesanan.</p>
+                    @endif
+                </div>
             </div>
         @endforelse
     </div>
+
+    <script>
+        function toggleDropdown(dropdownId) {
+            const dropdown = document.getElementById(dropdownId);
+            const allDropdowns = document.querySelectorAll('.dropdown-menu-item');
+            allDropdowns.forEach(item => {
+                if (item.id !== dropdownId) {
+                    item.classList.add('hidden');
+                }
+            });
+            dropdown.classList.toggle('hidden');
+        }
+
+        window.onclick = function(event) {
+            if (!event.target.closest('button')) {
+                const allDropdowns = document.querySelectorAll('.dropdown-menu-item');
+                allDropdowns.forEach(item => {
+                    item.classList.add('hidden');
+                });
+            }
+        }
+    </script>
 @endsection
