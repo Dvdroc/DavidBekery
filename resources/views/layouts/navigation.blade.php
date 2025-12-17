@@ -22,13 +22,24 @@
                     <!--FAQ-->
                     <!-- List Pesanan -->
                     <a class="text-[#1b0d11] text-sm font-medium leading-normal" href="{{ route('user.list-pesanan') }}">List Pesanan</a>
-                    <!-- About -->
                     <!-- Constact Us -->
                     <a href="{{ route('Contact') }}"
                     class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-4 bg-[#ee2b5c] text-[#fcf8f9] text-sm font-bold leading-normal tracking-[0.015em]">
                     <span class="truncate">Contact Us</span>
                     </a>
                 </div>
+                <div class="hidden sm:flex sm:items-center sm:ms-6">
+                <a href="{{ route('cart.index') }}" class="relative text-gray-500 hover:text-[#ee2b5c] transition">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    @if(\App\Models\CartItem::where('user_id', Auth::id())->count() > 0)
+                        <span class="absolute -top-1 -right-2 bg-[#ee2b5c] text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full">
+                            {{ \App\Models\CartItem::where('user_id', Auth::id())->count() }}
+                        </span>
+                    @endif
+                </a>
+            </div>
             
 
             <!-- Settings Dropdown -->
