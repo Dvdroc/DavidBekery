@@ -20,6 +20,7 @@
                     <!-- Custom Cake -->
                     <a class="text-[#1b0d11] text-sm font-medium leading-normal" href="{{ route('custom') }}">Custom Cake</a>
                     <!--FAQ-->
+                    <a class="text-[#1b0d11] text-sm font-medium leading-normal" href="{{ route('faq') }}">FAQ</a>
                     <!-- List Pesanan -->
                     <a class="text-[#1b0d11] text-sm font-medium leading-normal" href="{{ route('user.list-pesanan') }}">List Pesanan</a>
                     <!-- Constact Us -->
@@ -40,7 +41,7 @@
                     @endif
                 </a>
             </div>
-            
+
 
             <!-- Settings Dropdown -->
             <div class="hidden sm:flex sm:items-center">
